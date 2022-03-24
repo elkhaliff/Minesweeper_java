@@ -78,8 +78,9 @@ public class GameField {
      *  Установка определенного кол-ва мин random
      */
     public void initMines(int mines) {
-        boolean doIt = true;
+        boolean doIt;
         for (int i = 0; i < mines; i++) {
+            doIt = true;
             while (doIt && isEmptyCells()) { // Попытка найти место для одной мины
                 int x = (int) (Math.random() * 9);
                 int y = (int) (Math.random() * 9);
@@ -92,13 +93,14 @@ public class GameField {
      * Получение данных о трех ячейках строки (исключая выход за пределы поля)
      */
     private int checkRow(Point point, boolean markWork) {
-        if (point.x < 0 || point.x > rows ) return 0; // такой ячейки - нет
+        if (point.x < 0 || point.x > rows - 1) return 0; // такой ячейки - нет
         var out = 0;
-        for (int c = point.y; c < point.y + 2; c++) {
-            if (c < 0 || c > cols) continue; // такой ячейки - нет
-            if (isEmpty(point)) {
-                if (markWork && (isTypeCell(point, cloudCell) || (isTypeCell(point, flagCell)) && !isTypeCell(point, emptyCell)))
-                    fieldMap[point.x][point.y] = workCell; // покажем, что данная ячейка пуста, и вокруг можно исследовать
+        for (int c = point.y; c < point.y + 3; c++) {
+            if (c < 0 || c > cols - 1) continue; // такой ячейки - нет
+            Point pointTest = new Point(point.x, c);
+            if (isEmpty(pointTest)) {
+                if (markWork && (isTypeCell(pointTest, cloudCell) || (isTypeCell(pointTest, flagCell)) && !isTypeCell(pointTest, emptyCell)))
+                    fieldMap[pointTest.x][pointTest.y] = workCell; // покажем, что данная ячейка пуста, и вокруг можно исследовать
             } else out ++;
         }
         return out;
@@ -112,7 +114,6 @@ public class GameField {
                 checkRow(new Point(point.x, point.y - 1), markWork) +            // проверяем текущую строку
                 checkRow(new Point(point.x + 1, point.y - 1), markWork);      // проверяем строку ниже (все позиции)
     }
-
     /**
      *  Установка\снятие флага на предполагаемое место мины
      */
@@ -123,7 +124,7 @@ public class GameField {
     /**
      * Проверка всего поля на отсутствие мин
      */
-    private void testEmpty() {
+    public void testEmpty() {
         var isWork = true;
         while (isWork) {
             isWork = false;
@@ -140,6 +141,19 @@ public class GameField {
     }
 
     /**
+     * Проходная функция заполнения статистики по всем клеткам поля
+     */
+    public void checkAll() {
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                Point point = new Point(i, j);
+                int around = viewAround(point, false);
+                if (isEmpty(point) && (around != 0)) fieldMap[i][j] = String.format("%d", around);
+            }
+        }
+    }
+
+    /**
      * Проверка ячейки на отсутствие мины
      */
     private boolean testEmptyCell(Point point) {
@@ -147,8 +161,9 @@ public class GameField {
         if (!empty) return false;
 
         Integer around = viewAround(point, false);
-        if (empty && (around != 0)) fieldMap[point.x][point.y] = around.toString();
-        else if (around == 0) {
+        if (empty && (around != 0))
+            fieldMap[point.x][point.y] = around.toString();
+        else {
             viewAround(point, true);
             fieldMap[point.x][point.y] = emptyCell;
         }
@@ -159,23 +174,24 @@ public class GameField {
      * Ход сапёра и проверка
      */
     public int makeTurn() {
-//        print("Set/unset mines marks or claim a cell as free: ");
-//        String input = readLine()!!.split(" ")
-/*
-        // По заданию - ввод идет столбец - строка (x - y)
-        int col = input[0].toInt();
-        int row = input[1].toInt();
-        int type = input[2];
+        String[] input = getString("Set/unset mines marks or claim a cell as free: ").split(" ");
 
-        Point point = new Point(row, col);
+        // По заданию - ввод идет столбец - строка (x - y)
+        Point point = new Point(Integer.parseInt(input[1]) - 1, Integer.parseInt(input[0]) - 1);
+        String type = input[2];
         // There is a number here!
         if (isNumberCell(point)) return 1;
 
         switch (type) {
-            case "mine" -> setUnsetFlag(point);
-            case "free" -> testEmptyCell(point) ? testEmpty() : return 2;
+            case "mine": { setUnsetFlag(point); break; }
+            case "free": {
+                if (testEmptyCell(point))
+                    testEmpty();
+                else
+                    return 2;
+                break;
+            }
         }
-*/
         return 0;
     }
 
@@ -215,34 +231,38 @@ public class GameField {
      */
     @Override
     public String toString() {
-        StringBuilder border = new StringBuilder(" ");
+        StringBuilder border = new StringBuilder("");
         border.append(" |");
         for (int i = 1; i < cols+1; i++) {
-            border.append(" "); border.append(i); // печатаем строку цифр
+            border.append(i); // печатаем строку цифр
         }
         border.append("|\n");
-        border.append("—|");
+        StringBuilder border1 = new StringBuilder("");
+        border1.append("-|");
         for (int i = 1; i < cols+1; i++) {
-            border.append("—"); // печатаем линейку
+            border1.append("-"); // печатаем линейку
         }
-        border.append("|\n");
+        border1.append("|\n");
 
         StringBuilder outStr = new StringBuilder();
-        outStr.append(border);
+        outStr.append(border)
+                .append(border1);
         for (int i = 0; i < rows; i++) {
-            outStr.append(String.format("%s|", i+1)); // порядковый номер
+            outStr.append(String.format("%d|", i+1)); // порядковый номер
             for (int j = 0; j < cols; j++) {
                 outStr.append(fieldMap[i][j]);
             }
-            outStr.append("\n");
+            outStr.append("|\n");
         }
+        outStr.append(border1);
         return outStr.toString();
     }
 
-    public static void print(String string) { System.out.print(string); }
+    private void print(String string) { System.out.print(string); }
 
-    public static String getString() {
+    private String getString(String string) {
         Scanner scanner = new Scanner(System.in);
+        print(string);
         return scanner.nextLine();
     }
 }
